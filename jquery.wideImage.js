@@ -12,11 +12,10 @@
 		return $(this).each( function(){
 			var obj = this;
 
-			obj.init = function(){
-				/* default styles */
-				$( settings.wrap ).css( settings.wrapStyles );
-				$( settings.image ).css( settings.imageStyles );
-			};
+			if( $(this).hasClass('loaded') !== true ){
+				$(this).css( settings.wrapStyles );
+				$(this).find( settings.image ).css( settings.imageStyles );
+			}
 
 			obj.generate = function(){
 				// execute
@@ -24,7 +23,12 @@
 					animate : false,
 					distance : settings.distance
 				};
-				wideImage( $(obj), options );
+				// if add preload
+				if( $(obj).hasClass('loaded') !== true ){
+					preload( $(obj), options );
+				} else {
+					wideImage( $(obj), options, null );
+				}
 			};
 
 			obj.hover = function(){
@@ -35,17 +39,15 @@
 						distance : settings.distanceHover,
 						speed : settings.animateSpeed
 					};
-					wideImage( $(this), options );
+					wideImage( $(this), options, null );
 
 				}).on( 'mouseleave', function(){
 					$(this).find( settings.image ).stop();
-					wideImage( $(this), { distance: settings.distance, animate : settings.animate, speed : 'fast' } );
+					wideImage( $(this), { distance: settings.distance, animate : settings.animate, speed : 'fast' }, null );
 				});
 			};
 
 			$(document).ready( function(){
-				// initialice
-				obj.init();
 				// do action
 				obj.generate();
 				// add hover effect
@@ -57,11 +59,11 @@
 			$(window).on('resize', function(){
 				if( this.thumbnailResizeTo ) clearTimeout(this.thumbnailResizeTo);
 				this.thumbnailResizeTo = setTimeout(function(){
-					$(this).trigger('thumbnailResizeEnd');
+					$(this).trigger('imageWideResizeEnd');
 				}, 10);
 			});
 			// trigger event
-			$(window).on('thumbnailResizeEnd', function(){
+			$(window).on('imageWideResizeEnd', function(){
 				/* re-execute when page are resized */
 				obj.generate();
 			});
@@ -75,8 +77,9 @@
 		image : '.wi-image',
 		/* style elements */
 		wrapStyles : { position : 'relative', overflow : 'hidden' },
-		imageStyles : { position : 'absolute', zIndex : 0 },
+		imageStyles : { position : 'absolute', zIndex : 0, opacity : 0, visibility : 'hidden' },
 		/* behavior */
+		preload : true,
 		position : 'center',
 		distance : 10,
 		hover : false,
@@ -103,6 +106,21 @@
 		return imageHeight;
 	}
 
+	function preload( obj, options ){
+		$(obj).find( settings.image ).one('load', function(){
+			var check = setInterval( function(){
+				if( $(obj).find( settings.image ).outerWidth() !== 0 ){
+					$(obj).find( settings.image ).css({ opacity : 1, visibility : 'visible' });
+					wideImage( $(obj), options );
+					clearInterval( check );
+				}
+			}, 100 );
+		}).each( function(){
+			if( this.complete )
+				$(this).load();
+		});
+	}
+
 	function wideImage( obj, options ){
 		// Extend options
 		var defaults = { distance : 10, animate : false, speed : 'fast' };
@@ -110,8 +128,10 @@
 
 		// Image Measures
 		var percentage, newImageWidth, newImageHeight;
+
 		// set image
 		var image = $(obj).find( settings.image );
+
 		// get variables
 		var wrapWidth = $(obj).outerWidth();
 		var wrapHeight = $(obj).outerHeight();
@@ -164,6 +184,8 @@
 			$(image).stop().animate( properties, options.speed);
 		else
 			$(image).css( properties );
+
+		$(obj).addClass('loaded');
 	}
 
 })(jQuery);
